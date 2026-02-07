@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+// Prevent static generation
+export const dynamic = 'force-dynamic'
+
 export default function LoginPage() {
   const [email, setEmail] = useState('eviemax800@gmail.com')
   const [password, setPassword] = useState('')
