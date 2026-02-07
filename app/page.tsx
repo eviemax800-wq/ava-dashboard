@@ -1,18 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Dashboard from '@/components/Dashboard'
+import { redirect } from 'next/navigation';
 
-// Prevent static generation
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
-export default async function Home() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    redirect('/login')
-  }
-
-  return <Dashboard user={user} />
+export default function Home() {
+  redirect('/dashboard');
 }
