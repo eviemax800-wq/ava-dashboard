@@ -38,7 +38,7 @@ export default function DashboardPage() {
             const [agents, tasks, blockers, completed] = await Promise.all([
                 supabase.from('agents').select('id').eq('status', 'running'),
                 supabase.from('tasks').select('id').eq('status', 'READY'),
-                supabase.from('blockers').select('id').eq('status', 'active'),
+                supabase.from('blockers').select('id').neq('status', 'resolved'),
                 supabase
                     .from('tasks')
                     .select('id')
