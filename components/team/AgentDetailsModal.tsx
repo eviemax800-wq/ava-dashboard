@@ -91,7 +91,7 @@ export function AgentDetailsModal({ agent, onClose }: AgentDetailsModalProps) {
                                         Specialties
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
-                                        {agent.specialties.map((specialty, idx) => (
+                                        {(Array.isArray(agent.specialties) ? agent.specialties : []).map((specialty, idx) => (
                                             <span
                                                 key={idx}
                                                 className="px-3 py-1 rounded-full text-xs bg-violet-500/10 text-violet-400 border border-violet-500/20"
