@@ -52,13 +52,12 @@ CREATE TRIGGER update_team_agents_updated_at
   FOR EACH ROW 
   EXECUTE FUNCTION update_updated_at_column();
 
--- Seed data: initial agent roster
+-- Seed data: Ava's actual agent roster
 INSERT INTO team_agents (agent_id, name, emoji, role, specialties, status) VALUES
+  ('antigravity', 'Antigravity', '🚀', 'Full-Stack Builder', '["code", "deployment", "architecture", "debugging"]'::jsonb, 'idle'),
   ('iris', 'Iris', '🎨', 'Content Creator', '["image-generation", "video-generation", "visual-content"]'::jsonb, 'idle'),
-  ('atlas', 'Atlas', '🔧', 'Code Builder', '["full-stack", "api-integration", "debugging"]'::jsonb, 'idle'),
-  ('scout', 'Scout', '🔍', 'Research & Strategy', '["market-research", "competitive-analysis", "trend-analysis"]'::jsonb, 'idle'),
-  ('pulse', 'Pulse', '💬', 'Social Media Manager', '["dm-automation", "engagement", "content-scheduling"]'::jsonb, 'idle'),
-  ('forge', 'Forge', '🏗️', 'Infrastructure & DevOps', '["deployment", "ci-cd", "monitoring"]'::jsonb, 'idle');
+  ('claude', 'Claude', '🧠', 'AI Reasoning', '["analysis", "writing", "research", "strategy"]'::jsonb, 'idle'),
+  ('gemini', 'Gemini', '✨', 'AI Assistant', '["planning", "research", "content", "coding"]'::jsonb, 'idle');
 
 COMMENT ON TABLE team_agents IS 'Employee agent roster with real-time status tracking';
 COMMENT ON COLUMN team_agents.status IS 'idle = no work | queued = assigned but waiting for capacity | working = actively processing | blocked = has blocker';
