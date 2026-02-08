@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { TeamSummaryWidget } from '@/components/dashboard/TeamSummaryWidget';
 import {
     Bot,
     CheckSquare,
@@ -151,6 +152,9 @@ export default function DashboardPage() {
                     color="#10b981"
                 />
             </div>
+
+            {/* Team Summary Widget */}
+            <TeamSummaryWidget />
 
             {/* Activity Feed */}
             <motion.div

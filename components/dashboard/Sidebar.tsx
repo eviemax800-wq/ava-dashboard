@@ -14,6 +14,7 @@ import {
     LogOut,
     Menu,
     X,
+    Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,7 @@ import { useRouter } from 'next/navigation';
 const navItems = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/dashboard/tasks', icon: CheckSquare, label: 'Tasks' },
+    { href: '/dashboard/team', icon: Users, label: 'Team' },
     { href: '/dashboard/agents', icon: Bot, label: 'Agents' },
     { href: '/dashboard/projects', icon: FolderKanban, label: 'Projects' },
     { href: '/dashboard/blockers', icon: AlertCircle, label: 'Blockers' },
