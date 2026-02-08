@@ -19,6 +19,7 @@ import {
 import { useDroppable } from '@dnd-kit/core';
 import { TaskCard } from '@/components/dashboard/TaskCard';
 import { AddTaskModal } from '@/components/dashboard/AddTaskModal';
+import { TaskDetailPanel } from '@/components/dashboard/TaskDetailPanel';
 import { motion } from 'framer-motion';
 import { Plus, Search, Filter } from 'lucide-react';
 import { statusConfig } from '@/lib/design-tokens';
@@ -35,6 +36,12 @@ interface Task {
     created_at: string;
     updated_at?: string;
     completed_at?: string;
+    source?: string;
+    synced?: boolean;
+    modified_by?: string;
+    skip_auto_spawn?: boolean;
+    context_type?: string;
+    retry_count?: number;
 }
 
 const columns = [
@@ -49,11 +56,13 @@ function DroppableColumn({
     title,
     tasks,
     color,
+    onTaskClick,
 }: {
     id: string;
     title: string;
     tasks: Task[];
     color: string;
+    onTaskClick: (task: Task) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -88,7 +97,11 @@ function DroppableColumn({
             >
                 <div className="space-y-2">
                     {tasks.map((task) => (
-                        <TaskCard key={task.id} task={task} />
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            onClick={() => onTaskClick(task)}
+                        />
                     ))}
                 </div>
             </SortableContext>
@@ -107,6 +120,7 @@ export default function TasksPage() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [search, setSearch] = useState('');
     const [filterPriority, setFilterPriority] = useState<string>('all');
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -145,7 +159,11 @@ export default function TasksPage() {
     }, [supabase, fetchTasks]);
 
     function handleDragStart(event: DragStartEvent) {
-        setActiveId(event.active.id as string);
+        const taskId = event.active.id as string;
+        const task = tasks.find((t) => t.id === taskId);
+        // Prevent dragging IN_PROGRESS tasks
+        if (task?.status === 'IN_PROGRESS') return;
+        setActiveId(taskId);
     }
 
     async function handleDragEnd(event: DragEndEvent) {
@@ -163,6 +181,9 @@ export default function TasksPage() {
         const task = tasks.find((t) => t.id === taskId);
         if (!task || task.status === targetColumn.id) return;
 
+        // Prevent moving IN_PROGRESS tasks
+        if (task.status === 'IN_PROGRESS') return;
+
         // Optimistic update
         setTasks((prev) =>
             prev.map((t) =>
@@ -179,10 +200,12 @@ export default function TasksPage() {
             )
         );
 
-        // Update database
+        // Update database with modified_by
         const updatePayload: Record<string, unknown> = {
             status: targetColumn.id,
             updated_at: new Date().toISOString(),
+            modified_by: 'human',
+            synced: false,
         };
         if (targetColumn.id === 'COMPLETED') {
             updatePayload.completed_at = new Date().toISOString();
@@ -226,7 +249,7 @@ export default function TasksPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Task Pipeline</h1>
                     <p className="text-zinc-400 mt-1 text-sm">
-                        Drag tasks between columns to update status
+                        Drag tasks between columns to update status • Click to view details
                     </p>
                 </div>
                 <button
@@ -290,6 +313,7 @@ export default function TasksPage() {
                                 title={column.title}
                                 tasks={columnTasks}
                                 color={config.color}
+                                onTaskClick={setSelectedTask}
                             />
                         );
                     })}
@@ -308,6 +332,14 @@ export default function TasksPage() {
                 isOpen={showAddModal}
                 onClose={() => setShowAddModal(false)}
             />
+
+            {selectedTask && (
+                <TaskDetailPanel
+                    task={selectedTask}
+                    onClose={() => setSelectedTask(null)}
+                    onUpdate={fetchTasks}
+                />
+            )}
         </div>
     );
 }

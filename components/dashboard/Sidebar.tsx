@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { ConductorBadge } from '@/components/dashboard/ConductorBadge';
 
 const navItems = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -82,6 +83,9 @@ export function Sidebar() {
                     );
                 })}
             </nav>
+
+            {/* Conductor Status */}
+            <ConductorBadge />
 
             {/* User section */}
             <div className="p-4 border-t border-white/5">
