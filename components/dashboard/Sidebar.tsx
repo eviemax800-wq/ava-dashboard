@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Home,
     CheckSquare,
-    Bot,
     FolderKanban,
     AlertCircle,
     FileText,
@@ -23,7 +22,6 @@ const navItems = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/dashboard/tasks', icon: CheckSquare, label: 'Tasks' },
     { href: '/dashboard/team', icon: Users, label: 'Team' },
-    { href: '/dashboard/agents', icon: Bot, label: 'Agents' },
     { href: '/dashboard/projects', icon: FolderKanban, label: 'Projects' },
     { href: '/dashboard/blockers', icon: AlertCircle, label: 'Blockers' },
     { href: '/dashboard/logs', icon: FileText, label: 'Logs' },
