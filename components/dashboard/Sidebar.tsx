@@ -14,19 +14,40 @@ import {
     Menu,
     X,
     Users,
+    DollarSign,
+    Heart,
+    BookOpen,
+    Microscope,
+    Archive,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { ConductorBadge } from '@/components/dashboard/ConductorBadge';
 
-const navItems = [
-    { href: '/dashboard', icon: Home, label: 'Dashboard' },
+interface NavItem {
+    href: string;
+    icon: React.ComponentType<{ size?: number }>;
+    label: string;
+}
+
+const operationsNav: NavItem[] = [
+    { href: '/dashboard', icon: Home, label: 'Empire' },
     { href: '/dashboard/tasks', icon: CheckSquare, label: 'Tasks' },
     { href: '/dashboard/team', icon: Users, label: 'Team' },
     { href: '/dashboard/projects', icon: FolderKanban, label: 'Projects' },
     { href: '/dashboard/blockers', icon: AlertCircle, label: 'Blockers' },
     { href: '/dashboard/logs', icon: FileText, label: 'Logs' },
 ];
+
+const strategyNav: NavItem[] = [
+    { href: '/dashboard/revenue', icon: DollarSign, label: 'Revenue' },
+    { href: '/dashboard/influencers', icon: Heart, label: 'Influencers' },
+    { href: '/dashboard/research', icon: Microscope, label: 'Research' },
+    { href: '/dashboard/decisions', icon: BookOpen, label: 'Decisions' },
+    { href: '/dashboard/archive', icon: Archive, label: 'Archive' },
+];
+
+const navItems = [...operationsNav, ...strategyNav];
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -45,17 +66,50 @@ export function Sidebar() {
             {/* Logo */}
             <div className="px-6 py-6">
                 <h1 className="text-xl font-bold gradient-text tracking-tight">
-                    ✨ AVA DASHBOARD
+                    ✨ AVA&apos;S EMPIRE
                 </h1>
                 <p className="text-xs text-zinc-500 mt-1">Mission Control</p>
             </div>
 
-            {/* Navigation */}
+            {/* Operations Navigation */}
             <nav className="flex-1 px-3 space-y-1">
-                {navItems.map((item) => {
+                {operationsNav.map((item) => {
                     const isActive =
                         pathname === item.href ||
                         (item.href !== '/dashboard' && pathname?.startsWith(item.href));
+                    const Icon = item.icon;
+
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileOpen(false)}
+                        >
+                            <motion.div
+                                className={`
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg
+                  transition-all duration-200 text-sm
+                  ${isActive
+                                        ? 'active-nav text-white font-semibold'
+                                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                    }
+                `}
+                                whileHover={{ x: 4 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <Icon size={18} />
+                                <span>{item.label}</span>
+                            </motion.div>
+                        </Link>
+                    );
+                })}
+
+                {/* Separator */}
+                <div className="!my-3 mx-3 h-px bg-white/5" />
+                <p className="px-3 text-[10px] font-medium text-zinc-600 uppercase tracking-wider mb-1">Strategy</p>
+
+                {strategyNav.map((item) => {
+                    const isActive = pathname?.startsWith(item.href);
                     const Icon = item.icon;
 
                     return (
