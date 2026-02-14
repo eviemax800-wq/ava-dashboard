@@ -19,6 +19,10 @@ import {
     BookOpen,
     Microscope,
     Archive,
+    TrendingUp,
+    Sparkles,
+    BarChart3,
+    Wallet,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -41,7 +45,10 @@ const operationsNav: NavItem[] = [
 
 const strategyNav: NavItem[] = [
     { href: '/dashboard/revenue', icon: DollarSign, label: 'Revenue' },
-    { href: '/dashboard/influencers', icon: Heart, label: 'Influencers' },
+    { href: '/dashboard/marketing', icon: TrendingUp, label: 'Marketing' },
+    { href: '/dashboard/influencers-analytics', icon: Sparkles, label: 'AI Influencers' },
+    { href: '/dashboard/experiments', icon: BarChart3, label: 'R&D' },
+    { href: '/dashboard/financial', icon: Wallet, label: 'Financial' },
     { href: '/dashboard/research', icon: Microscope, label: 'Research' },
     { href: '/dashboard/decisions', icon: BookOpen, label: 'Decisions' },
     { href: '/dashboard/archive', icon: Archive, label: 'Archive' },

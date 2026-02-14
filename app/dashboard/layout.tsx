@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/dashboard/Sidebar';
+import { DashboardProviders } from '@/components/dashboard/DashboardProviders';
+import { AvaChat } from '@/components/dashboard/AvaChat';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +24,12 @@ export default async function DashboardLayout({
         <div className="h-screen flex bg-[#0a0a0a] text-white overflow-hidden">
             <Sidebar />
             <main className="flex-1 overflow-auto">
-                <div className="p-6 md:p-8 max-w-7xl mx-auto">{children}</div>
+                <DashboardProviders>
+                    <div className="p-6 md:p-8 max-w-7xl mx-auto">{children}</div>
+                </DashboardProviders>
             </main>
+            <AvaChat />
         </div>
     );
 }
+

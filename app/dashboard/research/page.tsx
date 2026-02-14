@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Microscope,
     Search,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDate } from '@/lib/utils';
+import { useToast } from '@/components/ui/Toast';
 
 interface Research {
     id: string;
@@ -29,6 +30,8 @@ interface Research {
     tags: string[];
     source: string;
     researched_at: string;
+    status?: string;
+    archived_at?: string;
 }
 
 interface Competitor {
@@ -54,6 +57,7 @@ interface Proposal {
     tags: string[];
     created_at: string;
     updated_at: string;
+    archived_at?: string;
 }
 
 const marketColors: Record<string, string> = {
@@ -80,12 +84,14 @@ type TabType = 'research' | 'competitors' | 'proposals';
 
 export default function ResearchPage() {
     const supabase = createClient();
+    const { toast } = useToast();
     const [research, setResearch] = useState<Research[]>([]);
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [proposals, setProposals] = useState<Proposal[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [activeTab, setActiveTab] = useState<TabType>('research');
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -103,7 +109,6 @@ export default function ResearchPage() {
                     .from('proposals')
                     .select('*')
                     .is('archived_at', null)
-                    .neq('status', 'rejected')
                     .order('created_at', { ascending: false }),
             ]);
 
@@ -138,94 +143,92 @@ export default function ResearchPage() {
             p.tags?.some((t) => t.toLowerCase().includes(search.toLowerCase()))
     );
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ilriyvzvwarnqrbnranq.supabase.co';
-
     const openReport = (reportPath: string | null | undefined) => {
         if (!reportPath) return;
-        window.open(`${supabaseUrl}/storage/v1/object/public/reports/${reportPath}`, '_blank');
+        window.open(`/api/reports?path=${encodeURIComponent(reportPath)}`, '_blank');
     };
 
-    // Handler functions for proposals
-    async function handleApproveProposal(id: string, event: React.MouseEvent) {
-        event.stopPropagation();
-        const res = await fetch(`/api/proposals/${id}/approve`, { method: 'POST' });
-        if (res.ok) {
-            setProposals(proposals.map(p => p.id === id ? { ...p, status: 'approved' } : p));
-            alert('✓ Approved!');
+    async function handleReview(id: string, type: 'proposals' | 'research', action: 'approve' | 'reject' | 'archive') {
+        setActionLoading(id);
+        try {
+            const res = await fetch('/api/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, id, action }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const messages = {
+                    approve: 'Approved ✓',
+                    reject: 'Rejected and archived',
+                    archive: 'Archived',
+                };
+                toast(messages[action], action === 'approve' ? 'success' : 'info');
+
+                // Remove from view if rejected or archived
+                if (action === 'reject' || action === 'archive') {
+                    if (type === 'proposals') {
+                        setProposals((prev) => prev.filter((p) => p.id !== id));
+                    } else {
+                        setResearch((prev) => prev.filter((r) => r.id !== id));
+                    }
+                } else {
+                    // Update status in state
+                    if (type === 'proposals') {
+                        setProposals((prev) =>
+                            prev.map((p) => (p.id === id ? { ...p, status: 'approved' } : p))
+                        );
+                    } else {
+                        setResearch((prev) =>
+                            prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r))
+                        );
+                    }
+                }
+            } else {
+                toast(data.error || 'Action failed', 'error');
+            }
+        } catch {
+            toast('Network error', 'error');
         }
+        setActionLoading(null);
     }
 
-    async function handleRejectProposal(id: string, event: React.MouseEvent) {
-        event.stopPropagation();
-        const reason = prompt('Reason for rejection (optional):');
-        if (reason === null) return; // User cancelled
+    function ActionButtons({ id, type, status }: { id: string; type: 'proposals' | 'research'; status?: string }) {
+        const isLoading = actionLoading === id;
+        const isApproved = status === 'approved';
 
-        const res = await fetch(`/api/proposals/${id}/reject`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason }),
-        });
-        if (res.ok) {
-            setProposals(proposals.filter(p => p.id !== id));
-            alert('✗ Rejected and archived');
-        }
-    }
-
-    async function handleArchiveProposal(id: string, event: React.MouseEvent) {
-        event.stopPropagation();
-        const reason = prompt('Reason for archiving (optional):');
-        if (reason === null) return;
-
-        const res = await fetch(`/api/proposals/${id}/archive`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason }),
-        });
-        if (res.ok) {
-            setProposals(proposals.filter(p => p.id !== id));
-            alert('📁 Archived');
-        }
-    }
-
-    // Handler functions for research
-    async function handleApproveResearch(id: string, event: React.MouseEvent) {
-        event.stopPropagation();
-        const res = await fetch(`/api/research/${id}/approve`, { method: 'POST' });
-        if (res.ok) {
-            alert('✓ Approved!');
-        }
-    }
-
-    async function handleRejectResearch(id: string, event: React.MouseEvent) {
-        event.stopPropagation();
-        const reason = prompt('Reason for rejection (optional):');
-        if (reason === null) return;
-
-        const res = await fetch(`/api/research/${id}/reject`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason }),
-        });
-        if (res.ok) {
-            setResearch(research.filter(r => r.id !== id));
-            alert('✗ Rejected and archived');
-        }
-    }
-
-    async function handleArchiveResearch(id: string, event: React.MouseEvent) {
-        event.stopPropagation();
-        const reason = prompt('Reason for archiving (optional):');
-        if (reason === null) return;
-
-        const res = await fetch(`/api/research/${id}/archive`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason }),
-        });
-        if (res.ok) {
-            setResearch(research.filter(r => r.id !== id));
-            alert('📁 Archived');
-        }
+        return (
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                {!isApproved && (
+                    <button
+                        onClick={() => handleReview(id, type, 'approve')}
+                        disabled={isLoading}
+                        className="text-[11px] px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors flex items-center gap-0.5 disabled:opacity-50"
+                        title="Approve"
+                    >
+                        <Check size={11} />
+                        Approve
+                    </button>
+                )}
+                <button
+                    onClick={() => handleReview(id, type, 'reject')}
+                    disabled={isLoading}
+                    className="text-[11px] px-2 py-1 rounded-md bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-0.5 disabled:opacity-50"
+                    title="Reject (deletes .html)"
+                >
+                    <X size={11} />
+                    Reject
+                </button>
+                <button
+                    onClick={() => handleReview(id, type, 'archive')}
+                    disabled={isLoading}
+                    className="text-[11px] px-2 py-1 rounded-md bg-zinc-500/10 text-zinc-500 hover:bg-zinc-500/20 hover:text-zinc-300 transition-colors flex items-center gap-0.5 disabled:opacity-50"
+                    title="Archive (keeps file)"
+                >
+                    <Archive size={11} />
+                </button>
+            </div>
+        );
     }
 
     return (
@@ -303,85 +306,72 @@ export default function ResearchPage() {
                     </motion.div>
                 ) : (
                     <div className="space-y-3">
-                        {filteredResearch.map((item, i) => (
-                            <motion.div
-                                key={item.id}
-                                className={`glass rounded-xl p-5 card-glow ${item.report_path ? 'cursor-pointer hover:border-violet-500/30 border border-transparent transition-colors' : ''}`}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.04 }}
-                                onClick={() => item.report_path && openReport(item.report_path)}
-                            >
-                                <div className="flex items-start justify-between gap-4 mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-semibold text-sm">{item.topic}</h3>
-                                        {item.report_path && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 flex items-center gap-0.5">
-                                                <FileText size={9} />
-                                                .html
-                                            </span>
-                                        )}
+                        <AnimatePresence>
+                            {filteredResearch.map((item, i) => (
+                                <motion.div
+                                    key={item.id}
+                                    className={`glass rounded-xl p-5 card-glow ${item.report_path ? 'cursor-pointer hover:border-violet-500/30' : ''} border border-transparent transition-colors`}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, x: -100 }}
+                                    transition={{ delay: i * 0.04 }}
+                                    onClick={() => item.report_path && openReport(item.report_path)}
+                                >
+                                    <div className="flex items-start justify-between gap-4 mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-semibold text-sm">{item.topic}</h3>
+                                            {item.report_path && (
+                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 flex items-center gap-0.5">
+                                                    <FileText size={9} />
+                                                    .html
+                                                </span>
+                                            )}
+                                            {item.status === 'approved' && (
+                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 flex items-center gap-0.5">
+                                                    <Check size={9} />
+                                                    approved
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <ActionButtons id={item.id} type="research" status={item.status} />
+                                            <div className="flex items-center gap-1 text-[10px] text-zinc-500 flex-shrink-0">
+                                                <Calendar size={10} />
+                                                {formatDate(item.researched_at)}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-1 text-[10px] text-zinc-500 flex-shrink-0">
-                                        <Calendar size={10} />
-                                        {formatDate(item.researched_at)}
-                                    </div>
-                                </div>
 
-                                {item.key_findings && (
-                                    <p className="text-sm text-zinc-400 leading-relaxed mb-3">
-                                        {item.key_findings}
-                                    </p>
-                                )}
+                                    {item.key_findings && (
+                                        <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                                            {item.key_findings}
+                                        </p>
+                                    )}
 
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {item.tags?.map((tag) => (
-                                            <span
-                                                key={tag}
-                                                className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-500 flex items-center gap-1"
-                                            >
-                                                <Tag size={8} />
-                                                {tag}
-                                            </span>
-                                        ))}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {item.tags?.map((tag) => (
+                                                <span
+                                                    key={tag}
+                                                    className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-500 flex items-center gap-1"
+                                                >
+                                                    <Tag size={8} />
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {item.source && (
+                                                <span className="text-[10px] text-zinc-600">{item.source}</span>
+                                            )}
+                                            {item.report_path && (
+                                                <ExternalLink size={12} className="text-zinc-600" />
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {item.source && (
-                                            <span className="text-[10px] text-zinc-600">{item.source}</span>
-                                        )}
-                                        {item.report_path && (
-                                            <ExternalLink size={12} className="text-zinc-600" />
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                        onClick={(e) => handleApproveResearch(item.id, e)}
-                                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium flex items-center gap-1 transition-colors"
-                                    >
-                                        <Check size={14} />
-                                        Approve
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleRejectResearch(item.id, e)}
-                                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-medium flex items-center gap-1 transition-colors"
-                                    >
-                                        <X size={14} />
-                                        Reject
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleArchiveResearch(item.id, e)}
-                                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs font-medium flex items-center gap-1 transition-colors"
-                                    >
-                                        <Archive size={14} />
-                                        Archive
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))}
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
                     </div>
                 )
             ) : activeTab === 'proposals' ? (
@@ -397,92 +387,75 @@ export default function ResearchPage() {
                     </motion.div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {filteredProposals.map((prop, i) => {
-                            const statusStyle = statusColors[prop.status] || statusColors.draft;
+                        <AnimatePresence>
+                            {filteredProposals.map((prop, i) => {
+                                const statusStyle = statusColors[prop.status] || statusColors.draft;
 
-                            return (
-                                <motion.div
-                                    key={prop.id}
-                                    className={`glass rounded-xl p-5 card-glow ${prop.report_path ? 'cursor-pointer hover:border-violet-500/30 border border-transparent transition-colors' : 'border border-transparent'}`}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    onClick={() => prop.report_path && openReport(prop.report_path)}
-                                >
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <Lightbulb size={16} className="text-amber-400 flex-shrink-0" />
-                                            <h3 className="font-semibold text-sm">{prop.title}</h3>
-                                        </div>
-                                        <span
-                                            className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                                            style={{
-                                                backgroundColor: statusStyle.bg,
-                                                color: statusStyle.text,
-                                            }}
-                                        >
-                                            {prop.status}
-                                        </span>
-                                    </div>
-
-                                    {prop.summary && (
-                                        <p className="text-sm text-zinc-400 leading-relaxed mb-3">
-                                            {prop.summary}
-                                        </p>
-                                    )}
-
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {prop.tags?.map((tag) => (
-                                                <span
-                                                    key={tag}
-                                                    className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-500 flex items-center gap-1"
-                                                >
-                                                    <Tag size={8} />
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] text-zinc-600">
-                                                {formatDate(prop.created_at)}
+                                return (
+                                    <motion.div
+                                        key={prop.id}
+                                        className={`glass rounded-xl p-5 card-glow ${prop.report_path ? 'cursor-pointer hover:border-violet-500/30' : ''} border border-transparent transition-colors`}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        onClick={() => prop.report_path && openReport(prop.report_path)}
+                                    >
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Lightbulb size={16} className="text-amber-400 flex-shrink-0" />
+                                                <h3 className="font-semibold text-sm">{prop.title}</h3>
+                                            </div>
+                                            <span
+                                                className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                                                style={{
+                                                    backgroundColor: statusStyle.bg,
+                                                    color: statusStyle.text,
+                                                }}
+                                            >
+                                                {prop.status}
                                             </span>
-                                            {prop.report_path && (
-                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 flex items-center gap-0.5">
-                                                    <FileText size={9} />
-                                                    View
-                                                </span>
-                                            )}
                                         </div>
-                                    </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                            onClick={(e) => handleApproveProposal(prop.id, e)}
-                                            className="flex-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium flex items-center justify-center gap-1 transition-colors"
-                                        >
-                                            <Check size={14} />
-                                            Approve
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleRejectProposal(prop.id, e)}
-                                            className="flex-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-medium flex items-center justify-center gap-1 transition-colors"
-                                        >
-                                            <X size={14} />
-                                            Reject
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleArchiveProposal(prop.id, e)}
-                                            className="flex-1 px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs font-medium flex items-center justify-center gap-1 transition-colors"
-                                        >
-                                            <Archive size={14} />
-                                            Archive
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
+                                        {prop.summary && (
+                                            <p className="text-sm text-zinc-400 leading-relaxed mb-3">
+                                                {prop.summary}
+                                            </p>
+                                        )}
+
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {prop.tags?.map((tag) => (
+                                                    <span
+                                                        key={tag}
+                                                        className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-500 flex items-center gap-1"
+                                                    >
+                                                        <Tag size={8} />
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-zinc-600">
+                                                    {formatDate(prop.created_at)}
+                                                </span>
+                                                {prop.report_path && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 flex items-center gap-0.5">
+                                                        <FileText size={9} />
+                                                        View
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="mt-3 pt-3 border-t border-white/5 flex justify-end">
+                                            <ActionButtons id={prop.id} type="proposals" status={prop.status} />
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </AnimatePresence>
                     </div>
                 )
             ) : (

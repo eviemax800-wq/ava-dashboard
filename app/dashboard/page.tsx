@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client';
 import { motion } from 'framer-motion';
 import {
   Rocket, TrendingUp, Zap, AlertTriangle, CheckCircle2, Clock,
-  DollarSign, Users, Target, Activity
+  DollarSign, Users, Target, Activity, RefreshCw, Upload, Shield
 } from 'lucide-react';
+import { ActionButton } from '@/components/dashboard/ActionButton';
 
 interface LaunchStatus {
   countdown_hours: number;
@@ -131,6 +132,47 @@ export default function CommandCenterPage() {
           Real-time empire status • Launch countdown • Critical blockers
         </p>
       </div>
+
+      {/* Quick Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass rounded-xl p-6 border border-white/10"
+      >
+        <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">
+          Quick Actions
+        </h2>
+        <div className="flex flex-wrap gap-3">
+          <ActionButton
+            action="sync-dashboard"
+            label="Sync Dashboard"
+            icon={RefreshCw}
+            variant="primary"
+            size="sm"
+          />
+          <ActionButton
+            action="deploy-vercel"
+            label="Deploy to Vercel"
+            icon={Upload}
+            variant="secondary"
+            size="sm"
+          />
+          <ActionButton
+            action="fix-maya-2fa"
+            label="Fix Maya 2FA"
+            icon={Shield}
+            variant="danger"
+            size="sm"
+          />
+          <ActionButton
+            action="run-heartbeat"
+            label="Run Heartbeat"
+            icon={Zap}
+            variant="secondary"
+            size="sm"
+          />
+        </div>
+      </motion.div>
 
       {/* Hero Metric - This Week's Revenue */}
       <motion.div

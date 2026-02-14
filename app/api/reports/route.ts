@@ -16,9 +16,23 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
-    // Redirect to public storage URL
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/reports/${reportPath}`;
-    return NextResponse.redirect(publicUrl);
+    // Fetch from Supabase Storage and proxy with correct Content-Type
+    // (Supabase serves .html as text/plain due to CSP sandbox)
+    const storageUrl = `${supabaseUrl}/storage/v1/object/public/reports/${reportPath}`;
+    const res = await fetch(storageUrl);
+
+    if (!res.ok) {
+        return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+    }
+
+    const html = await res.text();
+    return new Response(html, {
+        status: 200,
+        headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=300',
+        },
+    });
 }
 
 export async function POST(request: Request) {

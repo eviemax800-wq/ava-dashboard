@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,9 +9,19 @@ const inter = Inter({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#6366f1",
+};
+
 export const metadata: Metadata = {
   title: "AVA Dashboard",
   description: "Mission control for your AI workforce",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AVA",
+  },
 };
 
 export default function RootLayout({
@@ -20,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+      <body className={`${inter.variable} antialiased`}>
+        <ServiceWorkerRegistrar />
+        {children}
+      </body>
     </html>
   );
 }
