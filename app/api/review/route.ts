@@ -8,19 +8,29 @@ type ActionType = 'approve' | 'reject' | 'archive' | 'unarchive' | 'delete';
 
 export async function POST(request: Request) {
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { type, id, action, reason } = (await request.json()) as {
-        type: 'proposals' | 'research';
+    const { type, id, action, reason, notes } = (await request.json()) as {
+        type: 'proposals' | 'research' | 'memory_reviews';
         id: string;
         action: ActionType;
         reason?: string;
+        notes?: string;
     };
 
     if (!type || !id || !action) {
         return NextResponse.json({ error: 'Missing type, id, or action' }, { status: 400 });
     }
 
-    if (!['proposals', 'research'].includes(type)) {
+    if (!['proposals', 'research', 'memory_reviews'].includes(type)) {
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+    }
+
+    // Memory reviews use 'reviewed' status instead of 'approved', and support notes
+    if (type === 'memory_reviews' && action === 'approve') {
+        const updateData: Record<string, unknown> = { status: 'reviewed', updated_at: new Date().toISOString() };
+        if (notes) updateData.ashan_notes = notes;
+        const { error } = await supabase.from(type).update(updateData).eq('id', id);
+        if (error) throw error;
+        return NextResponse.json({ success: true, action: 'reviewed' });
     }
 
     try {

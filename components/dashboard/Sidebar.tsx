@@ -23,6 +23,7 @@ import {
     Sparkles,
     BarChart3,
     Wallet,
+    Brain,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -50,6 +51,7 @@ const strategyNav: NavItem[] = [
     { href: '/dashboard/experiments', icon: BarChart3, label: 'R&D' },
     { href: '/dashboard/financial', icon: Wallet, label: 'Financial' },
     { href: '/dashboard/research', icon: Microscope, label: 'Research' },
+    { href: '/dashboard/memory', icon: Brain, label: 'Memory' },
     { href: '/dashboard/decisions', icon: BookOpen, label: 'Decisions' },
     { href: '/dashboard/archive', icon: Archive, label: 'Archive' },
 ];
