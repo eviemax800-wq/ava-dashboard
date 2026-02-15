@@ -13,9 +13,7 @@ import {
     LogOut,
     Menu,
     X,
-    Users,
     DollarSign,
-    Heart,
     Activity,
     BookOpen,
     Microscope,
@@ -39,10 +37,9 @@ interface NavItem {
 const operationsNav: NavItem[] = [
     { href: '/dashboard', icon: Home, label: 'Empire' },
     { href: '/dashboard/tasks', icon: CheckSquare, label: 'Tasks' },
-    { href: '/dashboard/team', icon: Users, label: 'Team' },
+    { href: '/dashboard/heartbeat', icon: Activity, label: 'Heartbeat' },
     { href: '/dashboard/projects', icon: FolderKanban, label: 'Projects' },
     { href: '/dashboard/blockers', icon: AlertCircle, label: 'Blockers' },
-    { href: '/dashboard/heartbeat', icon: Activity, label: 'Heartbeat' },
     { href: '/dashboard/logs', icon: FileText, label: 'Logs' },
 ];
 
