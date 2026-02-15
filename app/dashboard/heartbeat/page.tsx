@@ -13,6 +13,11 @@ import {
   Brain,
   Timer,
   Hash,
+  MessageSquare,
+  Bot,
+  Sun,
+  ArrowUpDown,
+  Send,
 } from 'lucide-react';
 
 interface HeartbeatState {
@@ -50,13 +55,25 @@ interface ErrorEntry {
   context?: Record<string, unknown>;
 }
 
+interface SystemJob {
+  name: string;
+  type: string;
+  schedule: string;
+  status: string;
+  lastRun?: string;
+  pid?: string;
+  lastLog?: string;
+}
+
 export default function HeartbeatPage() {
   const [state, setState] = useState<HeartbeatState | null>(null);
   const [context, setContext] = useState<SessionContext | null>(null);
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
+  const [jobs, setJobs] = useState<SystemJob[]>([]);
+  const [jobsCollectedAt, setJobsCollectedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'findings' | 'errors'>('overview');
+  const [tab, setTab] = useState<'jobs' | 'overview' | 'findings' | 'errors'>('jobs');
 
   async function fetchData() {
     try {
@@ -66,6 +83,8 @@ export default function HeartbeatPage() {
         setState(data.state);
         setContext(data.context);
         setErrors(data.errors || []);
+        setJobs(data.jobs || []);
+        setJobsCollectedAt(data.jobsCollectedAt || null);
         setLastSync(data.lastSync);
       }
     } catch (e) {
@@ -224,7 +243,7 @@ export default function HeartbeatPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-white/5 pb-1">
-        {(['overview', 'findings', 'errors'] as const).map(t => (
+        {(['jobs', 'overview', 'findings', 'errors'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -234,12 +253,95 @@ export default function HeartbeatPage() {
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            {t === 'overview' ? 'Session Overview' : t === 'findings' ? 'Findings & Decisions' : `Errors (${recentErrors.length})`}
+            {t === 'jobs' ? `System Jobs (${jobs.length})` : t === 'overview' ? 'Session' : t === 'findings' ? 'Findings' : `Errors (${recentErrors.length})`}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
+      {tab === 'jobs' && (
+        <div className="space-y-4">
+          {/* Jobs Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {jobs.map((job, i) => {
+              const icon = jobIcon(job.name);
+              const borderColor = job.status === 'running' || job.status === 'ok'
+                ? 'border-emerald-500/20'
+                : job.status === 'error' || job.status === 'down'
+                ? 'border-red-500/20'
+                : 'border-zinc-700/30';
+
+              return (
+                <motion.div
+                  key={job.name}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className={`glass rounded-xl p-4 border ${borderColor}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {icon}
+                      <span className="text-sm font-semibold text-white">{job.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {job.pid && (
+                        <span className="text-[10px] font-mono text-zinc-600">PID {job.pid}</span>
+                      )}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        job.status === 'running' || job.status === 'ok'
+                          ? 'bg-emerald-400/10 text-emerald-400'
+                          : job.status === 'error' || job.status === 'down'
+                          ? 'bg-red-400/10 text-red-400'
+                          : 'bg-zinc-400/10 text-zinc-400'
+                      }`}>
+                        {job.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-600">Schedule</span>
+                      <span className="text-zinc-400">{job.schedule}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-600">Type</span>
+                      <span className="text-zinc-400">{job.type}</span>
+                    </div>
+                    {job.lastRun && job.lastRun !== 'never' && job.lastRun !== '' && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-600">Last Run</span>
+                        <span className="text-zinc-400">{timeAgo(job.lastRun)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {job.lastLog && job.lastLog !== '(no log file)' && (
+                    <div className="mt-3 pt-2 border-t border-white/5">
+                      <p className="text-[10px] text-zinc-600 mb-1">Last log output:</p>
+                      <p className="text-[10px] text-zinc-500 font-mono truncate">{job.lastLog}</p>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {jobs.length === 0 && (
+            <div className="glass rounded-xl p-8 text-center">
+              <p className="text-sm text-zinc-500">No job data yet. Run sync-memory.sh to populate.</p>
+            </div>
+          )}
+
+          {jobsCollectedAt && (
+            <div className="text-xs text-zinc-600 text-right">
+              Job health collected: {timeAgo(jobsCollectedAt)}
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === 'overview' && (
         <div className="space-y-4">
           {/* Session Info */}
@@ -391,6 +493,19 @@ export default function HeartbeatPage() {
       )}
     </div>
   );
+}
+
+function jobIcon(name: string) {
+  const size = 18;
+  switch (name) {
+    case 'Heartbeat': return <Activity size={size} className="text-violet-400" />;
+    case 'Telegram Bot': return <Send size={size} className="text-blue-400" />;
+    case 'Maya DMs': return <MessageSquare size={size} className="text-pink-400" />;
+    case 'Reddit Karma': return <ArrowUpDown size={size} className="text-orange-400" />;
+    case 'Morning Briefing': return <Sun size={size} className="text-amber-400" />;
+    case 'Dashboard Sync': return <RefreshCw size={size} className="text-cyan-400" />;
+    default: return <Bot size={size} className="text-zinc-400" />;
+  }
 }
 
 function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {

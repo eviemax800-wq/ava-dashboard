@@ -8,7 +8,7 @@ export async function GET() {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   // Fetch heartbeat-related memory files
-  const keys = ['heartbeat-state', 'session-context', 'error-log'];
+  const keys = ['heartbeat-state', 'session-context', 'error-log', 'system-jobs'];
   const { data: files, error } = await supabase
     .from('memory_files')
     .select('key, content, updated_at')
@@ -28,10 +28,15 @@ export async function GET() {
     }
   }
 
+  // Extract system jobs data
+  const systemJobs = result['system-jobs'] as { collected_at?: string; jobs?: unknown[] } | null;
+
   return NextResponse.json({
     state: result['heartbeat-state'] || null,
     context: result['session-context'] || null,
     errors: Array.isArray(result['error-log']) ? result['error-log'] : [],
+    jobs: systemJobs?.jobs || [],
+    jobsCollectedAt: systemJobs?.collected_at || null,
     lastSync: files?.[0]?.updated_at || null,
   });
 }
