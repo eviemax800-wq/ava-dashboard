@@ -1,50 +1,72 @@
 import { NextResponse } from 'next/server';
-import { readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const MEMORY_DIR = '/Users/evie/.claude/projects/-Users-evie--openclaw-workspace/memory';
-const WORKSPACE = '/Users/evie/.openclaw/workspace';
-
-const MEMORY_FILES = [
-    { key: 'soul', path: join(WORKSPACE, 'SOUL.md'), label: 'Soul', description: 'Identity, mission, vision' },
-    { key: 'index', path: join(MEMORY_DIR, 'MEMORY.md'), label: 'Memory Index', description: 'Auto-loaded every session' },
-    { key: 'products', path: join(MEMORY_DIR, 'products.md'), label: 'Products', description: 'All products, portfolios, blockers' },
-    { key: 'strategy', path: join(MEMORY_DIR, 'strategy.md'), label: 'Strategy', description: 'Active strategy doc index' },
-    { key: 'architecture', path: join(MEMORY_DIR, 'architecture.md'), label: 'Architecture', description: 'Stack, credentials, tools' },
-    { key: 'marketing', path: join(MEMORY_DIR, 'marketing.md'), label: 'Marketing', description: 'Channels, campaigns, go-to-market' },
-    { key: 'personas', path: join(MEMORY_DIR, 'personas.md'), label: 'Personas', description: 'Margot, Luna, Maya DM automation' },
-    { key: 'market-research', path: join(MEMORY_DIR, 'market-research.md'), label: 'Market Research', description: 'Competitors, pricing, projections' },
-    { key: 'debugging', path: join(MEMORY_DIR, 'debugging.md'), label: 'Debugging', description: 'Mistakes, gotchas, known issues' },
-];
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function GET() {
-    const files = MEMORY_FILES.map((file) => {
-        try {
-            const content = readFileSync(file.path, 'utf-8');
-            const stats = statSync(file.path);
-            const lines = content.split('\n').length;
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-            return {
+    const { data: files, error } = await supabase
+        .from('memory_files')
+        .select('*')
+        .order('key');
+
+    if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Map DB columns to the shape the frontend expects
+    const mapped = (files || []).map((f) => ({
+        key: f.key,
+        label: f.label,
+        description: f.description,
+        content: f.content || '(empty)',
+        lines: f.lines || 0,
+        sizeBytes: f.size_bytes || 0,
+        lastModified: f.last_modified || f.updated_at,
+    }));
+
+    return NextResponse.json({ files: mapped });
+}
+
+// POST: Sync memory files from local machine to Supabase
+export async function POST(request: Request) {
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const { files } = (await request.json()) as {
+        files: Array<{
+            key: string;
+            label: string;
+            description: string;
+            content: string;
+            lines: number;
+            sizeBytes: number;
+            lastModified: string | null;
+        }>;
+    };
+
+    if (!files || !Array.isArray(files)) {
+        return NextResponse.json({ error: 'Missing files array' }, { status: 400 });
+    }
+
+    const results = [];
+    for (const file of files) {
+        const { error } = await supabase
+            .from('memory_files')
+            .upsert({
                 key: file.key,
                 label: file.label,
                 description: file.description,
-                content,
-                lines,
-                sizeBytes: stats.size,
-                lastModified: stats.mtime.toISOString(),
-            };
-        } catch {
-            return {
-                key: file.key,
-                label: file.label,
-                description: file.description,
-                content: '(file not found)',
-                lines: 0,
-                sizeBytes: 0,
-                lastModified: null,
-            };
-        }
-    });
+                content: file.content,
+                lines: file.lines,
+                size_bytes: file.sizeBytes,
+                last_modified: file.lastModified,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'key' });
 
-    return NextResponse.json({ files });
+        results.push({ key: file.key, success: !error, error: error?.message });
+    }
+
+    return NextResponse.json({ synced: results.length, results });
 }
